@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross-Sell Catalogue Assistant</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-light: #eff6ff;
+    --success-bg: #dcfce7;
+    --success-text: #166534;
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
+    --neutral-bg: #f1f5f9;
+    --neutral-text: #475569;
+    --danger: #dc2626;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Top Header & Stats Ribbon */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .brand h1 { margin: 0; font-size: 1.35rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+  .brand p { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--muted); }
+  .stats-pills { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .stat-pill {
+    background: var(--neutral-bg);
+    border: 1px solid var(--border);
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: var(--neutral-text);
+  }
+  .stat-pill b { color: var(--text); }
+
+  /* Navigation Bar */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+  }
+  nav button {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  /* Main Workspace Layout (2-Column with Persistent Live Basket) */
+  .workspace {
+    max-width: 1400px;
+    margin: 1.5rem auto;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 370px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 1024px) {
+    .workspace { grid-template-columns: 1fr; }
+  }
+
+  /* Cards & Containers */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .card h2 { margin: 0 0 0.25rem; font-size: 1.15rem; }
+  .card h3 { margin: 1rem 0 0.5rem; font-size: 0.98rem; }
+  .muted { color: var(--muted); font-size: 0.86rem; margin: 0; }
+
+  /* Inputs & Buttons */
+  input[type="text"], input[type="search"], textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-outline { background: var(--surface); border-color: var(--border); color: var(--text); }
+  .btn-outline:hover { background: var(--neutral-bg); }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; border-radius: 6px; }
+  .btn-ghost { background: transparent; color: var(--primary); padding: 0.25rem 0.5rem; }
+  .btn-ghost:hover { background: var(--primary-light); }
+
+  /* Filter Toolbar & Product Grid */
+  .toolbar {
+    display: flex;
+    gap: 0.75rem;
+    margin: 0.9rem 0;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .toolbar .search-wrap { flex: 1; min-width: 220px; }
+  .filter-pills { display: flex; gap: 0.35rem; }
+  .pill-btn {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .pill-btn.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: #bfdbfe;
+  }
+
+  .catalog-split {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .catalog-split { grid-template-columns: 1fr; }
+  }
+
+  .product-list {
+    max-height: 540px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    divide-y: 1px solid var(--border);
+  }
+  .product-row {
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .product-row:last-child { border-bottom: none; }
+  .product-row:hover { background: var(--neutral-bg); }
+  .product-row.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+  .product-row-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .product-row-sub { font-size: 0.74rem; color: var(--muted); display: flex; gap: 0.4rem; align-items: center; margin-top: 0.15rem; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge-direct { background: var(--success-bg); color: var(--success-text); }
+  .badge-conditional { background: var(--warn-bg); color: var(--warn-text); }
+  .badge-fallback { background: var(--neutral-bg); color: var(--neutral-text); }
+
+  /* Result Cards & Metric Bars */
+  .rec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.75rem;
+  }
+  .rec-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .rec-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+  .rec-card-title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+  .rec-card-code { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
+  .metric-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--neutral-bg);
+  }
+  .metric-chip {
+    background: var(--neutral-bg);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    color: var(--neutral-text);
+  }
+  .metric-chip b { color: var(--text); }
+  .metric-chip.lift-chip { background: #fffbeb; color: #b45309; font-weight: 600; }
+
+  /* Preset Chips */
+  .preset-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+  }
+  .preset-card {
+    border: 1px solid var(--border);
+    background: var(--neutral-bg);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+  }
+  .preset-card:hover { border-color: var(--primary); background: var(--primary-light); }
+  .preset-card b { display: block; color: var(--text); }
+  .preset-card span { font-size: 0.74rem; color: var(--muted); }
+
+  /* Sliders Panel */
+  .sliders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    background: var(--neutral-bg);
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    margin: 0.85rem 0;
+  }
+  .slider-box label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--neutral-text);
+    margin-bottom: 0.3rem;
+  }
+  .slider-box input[type="range"] { width: 100%; accent-color: var(--primary); cursor: pointer; }
+
+  /* Sticky Right Sidebar (Live Shopping Basket) */
+  .basket-sidebar {
+    position: sticky;
+    top: 1.25rem;
+  }
+  .basket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+  .basket-count {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .basket-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 0.6rem 0;
+  }
+  .basket-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.65rem;
+    background: var(--neutral-bg);
+    border-radius: 6px;
+    font-size: 0.82rem;
+  }
+  .basket-item-row button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+  .basket-item-row button:hover { color: var(--danger); }
+
+  /* Analytics KPIs & Charts */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+  }
+  .kpi {
+    background: var(--neutral-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+  }
+  .kpi b { display: block; font-size: 1.25rem; margin-top: 0.15rem; color: var(--primary); }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr 2.5rem;
+    gap: 0.6rem;
+    align-items: center;
+    margin: 0.45rem 0;
+    font-size: 0.84rem;
+  }
+  .bar { height: 10px; background: var(--neutral-bg); border-radius: 99px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+
+  .toast {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    background: #0f172a;
+    color: #fff;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Cross-Sell Catalogue Assistant</h1>
+    <p>Apriori Association Rule Engine &amp; TF-IDF Cold-Start Recommender (UCI Online Retail)</p>
+  </div>
+  <div id="coveragePills" class="stats-pills">
+    <span class="stat-pill">Loading dataset metrics...</span>
+  </div>
+</header>
+
+<nav>
+  <button class="active" type="button" data-tab="product">1. Product Explorer &amp; Rules</button>
+  <button type="button" data-tab="basket">2. Interactive Basket Simulator</button>
+  <button type="button" data-tab="newitem">3. Cold-Start &amp; Bundle Builder (TF-IDF)</button>
+  <button type="button" data-tab="analytics">4. Rule Analytics &amp; Network</button>
+</nav>
+
+<div class="workspace">
+  <!-- LEFT MAIN VIEWPORT -->
+  <main>
+
+    <!-- TAB 1: PRODUCT EXPLORER -->
+    <section id="product" class="tab">
+      <div class="card">
+        <h2>Interactive Product Catalogue Explorer</h2>
+        <p class="muted">Click any product on the left to inspect its 1-to-1 direct cross-sell rules, multi-item conditional bundles, or TF-IDF fallback suggestions.</p>
+
+        <div class="toolbar">
+          <div class="search-wrap">
+            <input id="catalogSearch" type="search" placeholder="Search by product name or stock code (e.g. 22697, teacup, lunch bag)..." autocomplete="off">
+          </div>
+          <div class="filter-pills">
+            <button type="button" class="pill-btn active" data-filter="all">All Products</button>
+            <button type="button" class="pill-btn" data-filter="direct">Has Direct Rules</button>
+            <button type="button" class="pill-btn" data-filter="covered">In Any Rule</button>
+            <button type="button" class="pill-btn" data-filter="uncovered">Cold-Start (No Rules)</button>
+          </div>
+        </div>
+
+        <div class="catalog-split">
+          <!-- Scrollable Interactive Product List -->
+          <div>
+            <div id="catalogCount" class="muted" style="margin-bottom:0.4rem;"></div>
+            <div id="productList" class="product-list"></div>
+          </div>
+
+          <!-- Selected Product Inspector -->
+          <div id="productInspector">
+            <div class="card" style="margin-bottom:0; background:var(--neutral-bg); text-align:center; padding:2.5rem 1rem;">
+              <p class="muted">Select any product from the list to inspect its cross-sell rules.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: BASKET SIMULATOR -->
+    <section id="basket" class="tab" style="display:none">
+      <div class="card">
+        <h2>Basket Recommendation Simulator</h2>
+        <p class="muted">Test how multiple items in a shopping cart combine to fire multi-antecedent rules and aggregate recommendation scores.</p>
+
+        <h3>Quick-Load Demo Baskets</h3>
+        <div id="presetBaskets" class="preset-bar"></div>
+
+        <h3>Live Threshold Sliders</h3>
+        <div class="sliders-grid">
+          <div class="slider-box">
+            <label><span>Min Confidence</span><span id="valConf">0%</span></label>
+            <input id="minConfidence" type="range" min="0" max="0.95" step="0.05" value="0">
+          </div>
+          <div class="slider-box">
+            <label><span>Min Support</span><span id="valSupp">0.0%</span></label>
+            <input id="minSupport" type="range" min="0" max="0.04" step="0.002" value="0">
+          </div>
+          <div class="slider-box">
+            <label><span>Min Lift</span><span id="valLift">0</span></label>
+            <input id="minLift" type="range" min="0" max="25" step="0.5" value="0">
+          </div>
+          <div class="slider-box">
+            <label><span>Max Results</span><span id="valLimit">8</span></label>
+            <input id="recLimit" type="range" min="1" max="20" step="1" value="8">
+          </div>
+        </div>
+
+        <div id="basketResults"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: COLD-START & TF-IDF BUNDLE BUILDER -->
+    <section id="newitem" class="tab" style="display:none">
+      <div class="card">
+        <h2>Cold-Start Catalogue Intelligence (TF-IDF + Rule Borrowing)</h2>
+        <p class="muted">Hypothesize a brand-new product not yet in the store. The engine uses TF-IDF cosine similarity to find the closest existing items and borrows their association rules to propose a starter bundle.</p>
+
+        <div class="preset-bar" style="margin-top:0.75rem;">
+          <button type="button" class="pill-btn" data-sample=" porcelain regency teacup set with roses">Sample: "porcelain regency teacup set with roses"</button>
+          <button type="button" class="pill-btn" data-sample="kids retrospot lunch bag and cutlery box">Sample: "kids retrospot lunch bag and cutlery box"</button>
+          <button type="button" class="pill-btn" data-sample="vintage wooden christmas tree ornament">Sample: "vintage wooden christmas tree ornament"</button>
+          <button type="button" class="pill-btn" data-sample="retro bakelike bedroom alarm clock">Sample: "retro bakelike bedroom alarm clock"</button>
+        </div>
+
+        <div style="display:grid; gap:0.6rem; margin-top:0.75rem;">
+          <input id="newKeywords" type="text" placeholder="Enter new product title (e.g. Vintage Rose Teacup)...">
+          <textarea id="newDescription" rows="2" placeholder="Optional keywords or material details..."></textarea>
+          <div>
+            <button class="btn btn-primary" type="button" id="similarBtn">Find Similar &amp; Build Starter Bundle</button>
+          </div>
+        </div>
+
+        <div id="similarResults" style="margin-top:1rem;"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: ANALYTICS -->
+    <section id="analytics" class="tab" style="display:none">
+      <div class="card">
+        <h2>Mined Rule Analytics</h2>
+        <p class="muted" id="analyticsNote">Loading figures from stored rules...</p>
+        <div id="kpis" class="kpis"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap:1.25rem;">
+        <div class="card">
+          <h2>Lift Distribution</h2>
+          <p class="muted" style="margin-bottom:0.75rem;">How strongly associated the 500 mined rules are.</p>
+          <div id="hist"></div>
+        </div>
+        <div class="card">
+          <h2>Support vs. Confidence</h2>
+          <p class="muted" style="margin-bottom:0.5rem;">Hover any rule dot to inspect the antecedent, consequent, and lift.</p>
+          <div id="scatter" class="chart"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Interactive Product Association Network</h2>
+        <p class="muted">Click any node in the graph to inspect that product's rules. Line thickness represents Lift.</p>
+        <div id="network" class="chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>Threshold Sensitivity ("What-If" Cutoffs)</h2>
+        <p class="muted">Compares how many stored rules survive Conservative, Balanced, or Exploratory cutoffs and what your current basket would receive.</p>
+        <button class="btn btn-primary" type="button" id="whatifBtn" style="margin-top:0.6rem;">Run Scenario Comparison</button>
+        <div id="whatif" style="margin-top:0.85rem;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Top 12 Strongest Association Rules</h2>
+        <div id="topRules" class="rec-grid"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RIGHT PERSISTENT SIDEBAR: LIVE BASKET -->
+  <aside class="basket-sidebar">
+    <div class="card">
+      <div class="basket-header">
+        <h2 style="margin:0;">Active Basket</h2>
+        <span id="basketBadge" class="basket-count">0 items</span>
+      </div>
+      <p class="muted">Add items from any tab to test multi-item basket recommendations in real time.</p>
+
+      <div style="margin-top:0.65rem; display:flex; gap:0.4rem;">
+        <input id="quickAddInput" type="search" placeholder="Quick search to add..." list="catalogDatalist" style="font-size:0.82rem; padding:0.45rem 0.65rem;">
+        <datalist id="catalogDatalist"></datalist>
+        <button id="quickAddBtn" type="button" class="btn btn-outline btn-sm">Add</button>
+      </div>
+
+      <div id="sidebarBasketList" class="basket-items-list"></div>
+
+      <div style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+        <button id="openBasketTabBtn" type="button" class="btn btn-primary" style="flex:1;">View Full Analysis</button>
+        <button id="clearBasketBtn" type="button" class="btn btn-outline btn-sm">Clear</button>
+      </div>
+
+      <!-- Mini Live Preview inside Sidebar -->
+      <div id="sidebarLiveRecs" style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border);"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let catalog = [];
+let basket = [];
+let stats = null;
+let presets = [];
+let activeFilter = "all";
+let selectedProductCode = null;
+let analyticsData = null;
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[ch]);
+}
+
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+async function readJson(url, options) {
+  const res = await fetch(url, options);
+  let body = null;
+  try { body = await res.json(); } catch (err) { body = null; }
+  if (!res.ok) {
+    const message = body && body.error ? body.error : `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return body;
+}
+
+function metricChipsHtml(item) {
+  const agreed = item.rule_count > 1 ? `<span class="metric-chip"><b>${item.rule_count}</b> rules agree</span>` : "";
+  const score = item.score !== undefined ? `<span class="metric-chip">Score <b>${Number(item.score).toFixed(2)}</b></span>` : "";
+  return `
+    <div class="metric-chips">
+      <span class="metric-chip lift-chip">Lift ${item.lift}x</span>
+      <span class="metric-chip">Conf <b>${(item.confidence * 100).toFixed(0)}%</b></span>
+      <span class="metric-chip">Supp <b>${(item.support * 100).toFixed(1)}%</b></span>
+      ${score}
+      ${agreed}
+    </div>
+  `;
+}
+
+function renderHeaderStats() {
+  const el = document.getElementById("coveragePills");
+  if (!stats) return;
+  el.innerHTML = `
+    <span class="stat-pill"><b>${stats.catalog_size}</b> Catalogue Items</span>
+    <span class="stat-pill"><b>${stats.rule_count}</b> Mined Rules</span>
+    <span class="stat-pill"><b>${stats.products_in_rules}</b> Covered (${stats.coverage_pct}%)</span>
+    <span class="stat-pill"><b>${stats.products_without_rules}</b> Cold-Start (TF-IDF Fallback)</span>
+  `;
+}
+
+function renderCatalogList() {
+  const q = document.getElementById("catalogSearch").value.trim().toLowerCase();
+  const filtered = catalog.filter(item => {
+    if (activeFilter === "direct" && !(item.direct_count > 0)) return false;
+    if (activeFilter === "covered" && !item.covered) return false;
+    if (activeFilter === "uncovered" && item.covered) return false;
+    if (!q) return true;
+    return item.name.toLowerCase().includes(q) || String(item.code).toLowerCase().includes(q);
+  });
+
+  document.getElementById("catalogCount").textContent = `Showing ${filtered.length} of ${catalog.length} products`;
+  const listEl = document.getElementById("productList");
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<div style="padding:1.2rem; text-align:center;" class="muted">No products match your filter.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(item => {
+    const isSel = item.code === selectedProductCode ? "selected" : "";
+    let badge = `<span class="badge badge-fallback">Cold-Start</span>`;
+    if (item.direct_count > 0) {
+      badge = `<span class="badge badge-direct">${item.direct_count} Direct</span>`;
+    } else if (item.covered) {
+      badge = `<span class="badge badge-conditional">Bundle Only</span>`;
+    }
+    return `
+      <div class="product-row ${isSel}" data-inspect="${esc(item.code)}">
+        <div>
+          <div class="product-row-title">${esc(item.name)}</div>
+          <div class="product-row-sub">
+            <span>#${esc(item.code)}</span>
+            ${badge}
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}" title="Add to basket">+ Basket</button>
+      </div>
+    `;
+  }).join("");
+}
+
+async function inspectProduct(code) {
+  if (!code) return;
+  selectedProductCode = code;
+  renderCatalogList();
+  const host = document.getElementById("productInspector");
+  host.innerHTML = `<div class="card"><p class="muted">Loading rules for #${esc(code)}...</p></div>`;
+
+  try {
+    const product = await readJson("/api/product/" + encodeURIComponent(code));
+    let html = `
+      <div class="card" style="margin-bottom:0;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+          <div>
+            <span class="muted" style="font-family:monospace;">StockCode #${esc(product.code)}</span>
+            <h2 style="margin:0.1rem 0 0.3rem;">${esc(product.name)}</h2>
+          </div>
+          <button type="button" class="btn btn-primary" data-add="${esc(product.code)}" data-name="${esc(product.name)}">+ Add to Active Basket</button>
+        </div>
+    `;
+
+    if (product.direct.length) {
+      html += `
+        <h3><span class="badge badge-direct">Direct Cross-Sell</span> Ready to Recommend Immediately (${product.direct.length})</h3>
+        <p class="muted">Buying ${esc(product.name)} alone is enough to trigger these recommendations.</p>
+        <div class="rec-grid">
+          ${product.direct.map(item => `
+            <div class="rec-card">
+              <div>
+                <div class="rec-card-head">
+                  <span class="rec-card-title">${esc(item.name)}</span>
+                  <span class="rec-card-code">#${esc(item.code)}</span>
+                </div>
+                <p class="muted" style="margin-top:0.35rem;">${esc(item.explanation)}</p>
+              </div>
+              <div>
+                ${metricChipsHtml(item)}
+                <div style="margin-top:0.55rem; display:flex; gap:0.4rem;">
+                  <button type="button" class="btn btn-outline btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}">+ Basket</button>
+                  <button type="button" class="btn btn-ghost btn-sm" data-inspect="${esc(item.code)}">Inspect</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="margin-top:0.75rem; padding:0.75rem 1rem; background:var(--neutral-bg); border-radius:8px;">
+          <strong>No 1-to-1 Direct Rule</strong>
+          <p class="muted">Buying this item by itself does not fire a single-antecedent rule.</p>
+        </div>
+      `;
+    }
+
+    if (product.conditional.length) {
+      html += `
+        <h3 style="margin-top:1.3rem;"><span class="badge badge-conditional">Multi-Item Bundles</span> Requires Companion Products (${product.conditional.length})</h3>
+        <p class="muted">These rules fire when the customer also has the companion item(s) in their basket.</p>
+        <div class="rec-grid">
+          ${product.conditional.map(row => `
+            <div class="rec-card">
+              <div>
+                <div style="font-size:0.8rem; color:var(--warn-text); font-weight:600;">
+                  + Also requires: ${row.also_requires.map(i => `${esc(i.name)}`).join(", ")}
+                </div>
+                <div style="margin-top:0.3rem;">
+                  Then recommend: <strong>${row.recommend.map(i => esc(i.name)).join(", ")}</strong>
+                </div>
+                <p class="muted" style="margin-top:0.35rem;">${esc(row.explanation)}</p>
+              </div>
+              <div>
+                ${metricChipsHtml(row)}
+                <div style="margin-top:0.55rem;">
+                  <button type="button" class="btn btn-outline btn-sm" data-bundle="${esc( JSON.stringify([product.code, ...row.also_requires.map(a => a.code)]) )}">Load Full Trigger into Basket</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (product.fallback.length) {
+      html += `
+        <h3 style="margin-top:1.3rem;"><span class="badge badge-fallback">TF-IDF Fallback</span> Borrowed from Similar Catalogue Products</h3>
+        <p class="muted">Since this product has no direct rules of its own, the engine matched its name via TF-IDF and borrowed rules from the closest neighbours.</p>
+        <div class="rec-grid">
+          ${product.fallback.map(item => `
+            <div class="rec-card">
+              <div>
+                <div class="rec-card-head">
+                  <span class="rec-card-title">${esc(item.name)}</span>
+                  <span class="rec-card-code">#${esc(item.code)}</span>
+                </div>
+                <p class="muted" style="margin-top:0.35rem;">${esc(item.explanation)}</p>
+              </div>
+              <div>
+                ${metricChipsHtml(item)}
+                <div style="margin-top:0.55rem; display:flex; gap:0.4rem;">
+                  <button type="button" class="btn btn-outline btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}">+ Basket</button>
+                  <button type="button" class="btn btn-ghost btn-sm" data-inspect="${esc(item.code)}">Inspect</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+    host.innerHTML = html;
+  } catch (err) {
+    host.innerHTML = `<div class="card"><p style="color:var(--danger);">${esc(err.message)}</p></div>`;
+  }
+}
+
+function addToBasket(code, name) {
+  if (!code) return;
+  if (basket.some(item => item.code === code)) {
+    showToast(`${name || code} is already in your basket`);
+    return;
+  }
+  const found = catalog.find(c => c.code === code);
+  const label = name || (found ? found.name : code);
+  basket.push({ code, name: label });
+  showToast(`Added ${label} to basket`);
+  syncBasketUI();
+}
+
+function setBasketCodes(codes) {
+  basket = [];
+  codes.forEach(code => {
+    const found = catalog.find(c => c.code === code);
+    if (found && !basket.some(b => b.code === code)) {
+      basket.push({ code: found.code, name: found.name });
+    }
+  });
+  syncBasketUI();
+}
+
+function syncBasketUI() {
+  document.getElementById("basketBadge").textContent = `${basket.length} ${basket.length === 1 ? "item" : "items"}`;
+  const listEl = document.getElementById("sidebarBasketList");
+  if (!basket.length) {
+    listEl.innerHTML = `<div class="muted" style="padding:0.6rem 0; text-align:center;">Your basket is empty. Click "+ Basket" on any item or choose a preset.</div>`;
+  } else {
+    listEl.innerHTML = basket.map(item => `
+      <div class="basket-item-row">
+        <span style="font-weight:500;">${esc(item.name)} <small class="muted">#${esc(item.code)}</small></span>
+        <button type="button" data-remove="${esc(item.code)}" title="Remove">&times;</button>
+      </div>
+    `).join("");
+  }
+  refreshBasketRecommendations();
+}
+
+function getSliderThresholds() {
+  const confidence = Number(document.getElementById("minConfidence").value);
+  const support = Number(document.getElementById("minSupport").value);
+  const lift = Number(document.getElementById("minLift").value);
+  const limit = Number(document.getElementById("recLimit").value);
+
+  document.getElementById("valConf").textContent = `${Math.round(confidence * 100)}%`;
+  document.getElementById("valSupp").textContent = `${(support * 100).toFixed(1)}%`;
+  document.getElementById("valLift").textContent = lift;
+  document.getElementById("valLimit").textContent = limit;
+
+  return {
+    codes: basket.map(item => item.code),
+    min_confidence: confidence,
+    min_support: support,
+    min_lift: lift,
+    limit: limit
+  };
+}
+
+async function refreshBasketRecommendations() {
+  const mainDiv = document.getElementById("basketResults");
+  const sideDiv = document.getElementById("sidebarLiveRecs");
+
+  if (!basket.length) {
+    mainDiv.innerHTML = `<div style="padding:1.5rem; background:var(--neutral-bg); border-radius:8px; text-align:center;" class="muted">Add items to the basket or click one of the Quick-Load Demo Baskets above to see ranked recommendations.</div>`;
+    sideDiv.innerHTML = `<p class="muted">Recommendations will appear here as soon as you add an item.</p>`;
+    return;
+  }
+
+  const payload = getSliderThresholds();
+  try {
+    const data = await readJson("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    // Update Sidebar Mini Preview
+    let sideHtml = `<div style="font-size:0.8rem; font-weight:700; margin-bottom:0.4rem;">Top Live Suggestions (${data.rules_applied} rules matched)</div>`;
+    if (!data.recommendations.length) {
+      sideHtml += `<p class="muted">No direct matches at current slider thresholds.</p>`;
+    } else {
+      sideHtml += data.recommendations.slice(0, 3).map(item => `
+        <div style="padding:0.45rem 0; border-bottom:1px solid var(--neutral-bg); display:flex; justify-content:space-between; align-items:center; gap:0.4rem;">
+          <div style="font-size:0.8rem;">
+            <strong>${esc(item.name)}</strong>
+            <div class="muted" style="font-size:0.72rem;">Score ${item.score} &middot; Lift ${item.lift}x</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}">+</button>
+        </div>
+      `).join("");
+    }
+    sideDiv.innerHTML = sideHtml;
+
+    // Update Main Basket Simulator Tab
+    let html = `<p class="muted" style="margin-bottom:0.5rem;">Evaluated <strong>${data.rules_applied}</strong> matching association rules for the current ${basket.length}-item basket.</p>`;
+    if (data.uncovered && data.uncovered.length) {
+      html += `<p class="muted" style="color:var(--warn-text);">Note: ${data.uncovered.map(i => esc(i.name)).join(", ")} have no mined rules and do not affect the basket score.</p>`;
+    }
+
+    if (data.recommendations.length) {
+      html += `<h3><span class="badge badge-direct">Applicable Now</span> Ranked Recommendations (${data.recommendations.length})</h3>`;
+      html += `<div class="rec-grid">` + data.recommendations.map(item => `
+        <div class="rec-card">
+          <div>
+            <div class="rec-card-head">
+              <span class="rec-card-title">${esc(item.name)}</span>
+              <span class="rec-card-code">#${esc(item.code)}</span>
+            </div>
+            <p class="muted" style="margin-top:0.35rem;">${esc(item.explanation)}</p>
+          </div>
+          <div>
+            ${metricChipsHtml(item)}
+            <div style="margin-top:0.55rem; display:flex; gap:0.4rem;">
+              <button type="button" class="btn btn-primary btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}">+ Add to Basket</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-inspect="${esc(item.code)}">Inspect</button>
+            </div>
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    } else {
+      html += `<p class="muted" style="margin-top:0.75rem;">No directly applicable recommendations at these thresholds. Try lowering the sliders.</p>`;
+    }
+
+    if (data.almost && data.almost.length) {
+      html += `
+        <h3 style="margin-top:1.4rem;"><span class="badge badge-conditional">One Item Away</span> Unlockable Bundle Rules</h3>
+        <p class="muted">Your basket partially matches a multi-item rule. Add 1 missing item below to unlock its consequent recommendation:</p>
+        <div class="rec-grid">
+          ${data.almost.map(row => `
+            <div class="rec-card">
+              <div>
+                <div style="font-size:0.82rem; color:var(--warn-text); font-weight:600;">
+                  Missing Trigger: ${esc(row.missing.name)}
+                </div>
+                <div style="margin-top:0.25rem; font-size:0.88rem;">
+                  Unlocks: <strong>${row.recommend.map(i => esc(i.name)).join(", ")}</strong>
+                </div>
+                <p class="muted" style="margin-top:0.35rem;">${esc(row.explanation)}</p>
+              </div>
+              <div>
+                ${metricChipsHtml(row)}
+                <div style="margin-top:0.55rem;">
+                  <button type="button" class="btn btn-outline btn-sm" data-add="${esc(row.missing.code)}" data-name="${esc(row.missing.name)}">+ Add ${esc(row.missing.name)}</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    mainDiv.innerHTML = html;
+  } catch (err) {
+    mainDiv.innerHTML = `<p style="color:var(--danger);">${esc(err.message)}</p>`;
+  }
+}
+
+async function findSimilar() {
+  const name = document.getElementById("newKeywords").value.trim();
+  const description = document.getElementById("newDescription").value.trim();
+  const q = [name, description].filter(Boolean).join(" ");
+  const div = document.getElementById("similarResults");
+  if (!q) {
+    div.innerHTML = "<p class='muted'>Enter a product title or click one of the sample pills above.</p>";
+    return;
+  }
+  div.innerHTML = "<p class='muted'>Computing TF-IDF cosine similarity across 400 products...</p>";
+  try {
+    const data = await readJson("/api/similar?q=" + encodeURIComponent(q));
+    if (!data.matches.length) {
+      div.innerHTML = "<p class='muted'>No catalogue product shares known vocabulary with that description.</p>";
+      return;
+    }
+    let html = "";
+    if (data.bundle && data.bundle.length) {
+      html += `
+        <h3>Auto-Generated Starter Bundle</h3>
+        <p class="muted">${esc(data.bundle_explanation)}</p>
+        <div class="rec-grid">
+          ${data.bundle.map(item => `
+            <div class="rec-card">
+              <div>
+                <span class="badge ${item.role === "similar" ? "badge-direct" : "badge-fallback"}">${item.role === "similar" ? "Closest Neighbour" : "Borrowed Complement"}</span>
+                <div class="rec-card-title" style="margin-top:0.4rem;">${esc(item.name)}</div>
+                ${item.explanation ? `<p class="muted" style="margin-top:0.3rem;">${esc(item.explanation)}</p>` : ""}
+              </div>
+              <div style="margin-top:0.5rem;">
+                <button type="button" class="btn btn-outline btn-sm" data-add="${esc(item.code)}" data-name="${esc(item.name)}">+ Add to Basket</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    html += `<h3 style="margin-top:1.4rem;">Closest Existing Catalogue Matches (TF-IDF Cosine Similarity)</h3>`;
+    html += `<div class="rec-grid">` + data.matches.map(item => `
+      <div class="rec-card">
+        <div class="rec-card-head">
+          <span class="rec-card-title">${esc(item.name)}</span>
+          <span class="badge ${item.covered ? "badge-direct" : "badge-fallback"}">${Math.round(item.similarity * 100)}% match</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.4rem;">
+          <span class="muted">#${esc(item.code)} &middot; ${item.covered ? "Has rules" : "No rules"}</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-inspect="${esc(item.code)}">Inspect</button>
+        </div>
+      </div>
+    `).join("") + `</div>`;
+
+    div.innerHTML = html;
+  } catch (err) {
+    div.innerHTML = `<p style="color:var(--danger);">${esc(err.message)}</p>`;
+  }
+}
+
+async function loadAnalytics() {
+  if (analyticsData) return;
+  const note = document.getElementById("analyticsNote");
+  try {
+    const data = await readJson("/api/analytics");
+    analyticsData = data;
+    note.textContent = data.source;
+    renderKpis(data.kpis);
+    renderHist(data.lift_histogram);
+    renderScatter(data.scatter);
+    renderNetwork(data.network);
+    renderTop(data.top_rules);
+  } catch (err) {
+    note.innerHTML = `<span style="color:var(--danger);">${esc(err.message)}</span>`;
+  }
+}
+
+function renderKpis(kpis) {
+  const cards = [
+    ["Catalogue Size", kpis.catalog_size],
+    ["Mined Rules", kpis.rule_count],
+    ["Rule Coverage", kpis.coverage_pct + "%"],
+    ["Direct-Rule Items", kpis.products_with_direct_rules],
+    ["Cold-Start Items", kpis.products_without_rules],
+    ["Multi-Antecedent Rules", kpis.multi_item_rules],
+    ["Mean Confidence", (kpis.mean_confidence * 100).toFixed(0) + "%"],
+    ["Mean Lift", kpis.mean_lift + "x"],
+    ["Median Support", (kpis.median_support * 100).toFixed(2) + "%"]
+  ];
+  document.getElementById("kpis").innerHTML = cards.map(([label, value]) =>
+    `<div class="kpi"><span class="muted">${esc(label)}</span><b>${esc(value)}</b></div>`
+  ).join("");
+}
+
+function renderHist(bins) {
+  const max = Math.max(...bins.map(bin => bin.count), 1);
+  document.getElementById("hist").innerHTML = bins.map(bin => `
+    <div class="bar-row">
+      <span>Lift ${esc(bin.label)}</span>
+      <div class="bar"><span style="width:${(bin.count / max) * 100}%"></span></div>
+      <span style="text-align:right; font-weight:600;">${bin.count}</span>
+    </div>
+  `).join("");
+}
+
+function renderScatter(points) {
+  const width = 560, height = 280, pad = 38;
+  const maxSupport = Math.max(...points.map(p => p.support), 0.01);
+  const circles = points.map(point => {
+    const x = pad + (point.support / maxSupport) * (width - pad * 2);
+    const y = height - pad - point.confidence * (height - pad * 2);
+    const radius = 2.5 + Math.min(point.lift, 40) / 10;
+    const title = `${point.antecedents.join(" + ")} -> ${point.consequents.join(" + ")} (Lift ${point.lift}x, Conf ${(point.confidence*100).toFixed(0)}%)`;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" fill="#2563eb" fill-opacity="0.38"><title>${esc(title)}</title></circle>`;
+  }).join("");
+  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd5e1"></line><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#cbd5e1"></line><text x="${width / 2}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#64748b">Support</text><text x="12" y="${height / 2}" font-size="11" fill="#64748b" transform="rotate(-90 12 ${height / 2})">Confidence</text>`;
+  document.getElementById("scatter").innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img">${axis}${circles}</svg>`;
+}
+
+function renderNetwork(graph) {
+  const host = document.getElementById("network");
+  const width = 760, height = 420, cx = width / 2, cy = height / 2, radius = 155;
+  const pos = {};
+  graph.nodes.forEach((node, index) => {
+    const angle = (Math.PI * 2 * index) / graph.nodes.length - Math.PI / 2;
+    pos[node.id] = { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+  });
+  const maxLift = graph.links.length ? Math.max(...graph.links.map(l => l.lift), 1) : 1;
+  const lines = graph.links.map(link => {
+    const from = pos[link.source], to = pos[link.target];
+    if (!from || !to) return "";
+    const stroke = (1 + 4 * (link.lift / maxLift)).toFixed(1);
+    return `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}" stroke="#94a3b8" stroke-width="${stroke}"><title>Lift ${link.lift}x</title></line>`;
+  }).join("");
+  const dots = graph.nodes.map(node => {
+    const point = pos[node.id];
+    const label = node.name.length > 24 ? node.name.slice(0, 22) + "…" : node.name;
+    return `
+      <g style="cursor:pointer;" data-inspect="${esc(node.id)}">
+        <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="7" fill="#2563eb"></circle>
+        <text x="${(point.x + 10).toFixed(1)}" y="${(point.y + 4).toFixed(1)}" font-size="11" font-weight="600" fill="#0f172a">${esc(label)}</text>
+      </g>
+    `;
+  }).join("");
+  host.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img">${lines}${dots}</svg>`;
+}
+
+function renderTop(rules) {
+  document.getElementById("topRules").innerHTML = rules.map(rule => `
+    <div class="rec-card">
+      <div>
+        <div class="muted" style="font-size:0.78rem;">If basket contains:</div>
+        <div style="font-weight:600; font-size:0.88rem; margin-bottom:0.35rem;">${rule.antecedents.map(esc).join(" + ")}</div>
+        <div class="muted" style="font-size:0.78rem;">Then recommend:</div>
+        <div style="color:var(--primary); font-weight:700; font-size:0.9rem;">${rule.consequents.map(esc).join(" + ")}</div>
+      </div>
+      ${metricChipsHtml(rule)}
+    </div>
+  `).join("");
+}
+
+async function compareScenarios() {
+  const div = document.getElementById("whatif");
+  div.innerHTML = "<p class='muted'>Evaluating threshold cutoffs...</p>";
+  try {
+    const data = await readJson("/api/whatif", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codes: basket.map(item => item.code), limit: 5 })
+    });
+    div.innerHTML = `<div class="rec-grid">` + data.scenarios.map(s => {
+      let recs = `<p class="muted">Add items to your basket to preview scenario recommendations.</p>`;
+      if (basket.length && !s.recommendations.length) {
+        recs = `<p class="muted">0 recommendations pass this strict cutoff.</p>`;
+      } else if (s.recommendations.length) {
+        recs = s.recommendations.map(r => `<div style="font-size:0.84rem; padding:0.25rem 0;">&bull; <strong>${esc(r.name)}</strong> (Lift ${r.lift}x)</div>`).join("");
+      }
+      return `
+        <div class="rec-card">
+          <div>
+            <span class="badge badge-direct">${esc(s.name)}</span>
+            <div style="font-weight:700; margin-top:0.35rem;">Keeps ${s.rules_kept} of ${s.rules_total} rules</div>
+            <p class="muted" style="margin:0.25rem 0 0.6rem;">Conf &ge; ${(s.min_confidence*100).toFixed(0)}% &middot; Supp &ge; ${(s.min_support*100).toFixed(1)}% &middot; Lift &ge; ${s.min_lift}</p>
+            ${recs}
+          </div>
+        </div>
+      `;
+    }).join("") + `</div>`;
+  } catch (err) {
+    div.innerHTML = `<p style="color:var(--danger);">${esc(err.message)}</p>`;
+  }
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll(".tab").forEach(t => { t.style.display = "none"; });
+  document.getElementById(tabName).style.display = "block";
+  document.querySelectorAll("nav button").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === tabName);
+  });
+  if (tabName === "analytics") loadAnalytics();
+}
+
+async function init() {
+  try {
+    const [items, coverage, presetData] = await Promise.all([
+      readJson("/api/catalog"),
+      readJson("/api/stats"),
+      readJson("/api/presets").catch(() => ({ baskets: [] }))
+    ]);
+    catalog = items;
+    stats = coverage;
+    presets = presetData.baskets || [];
+
+    renderHeaderStats();
+    renderCatalogList();
+
+    // Populate quick-add autocomplete datalist
+    document.getElementById("catalogDatalist").innerHTML = catalog.map(c =>
+      `<option value="${esc(c.code)}">${esc(c.name)}</option>`
+    ).join("");
+
+    // Render preset baskets
+    document.getElementById("presetBaskets").innerHTML = presets.map((p, idx) => `
+      <div class="preset-card" data-preset="${idx}">
+        <b>${esc(p.title)}</b>
+        <span>${esc(p.subtitle)}</span>
+      </div>
+    `).join("");
+
+    // Automatically inspect the first product with direct rules so the screen isn't blank
+    const starter = catalog.find(c => c.code === "22697") || catalog.find(c => c.direct_count > 0) || catalog[0];
+    if (starter) inspectProduct(starter.code);
+    syncBasketUI();
+  } catch (err) {
+    document.getElementById("coveragePills").innerHTML = `<span class="stat-pill" style="color:var(--danger);">${esc(err.message)}</span>`;
+  }
+}
+
+// Event Listeners
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+document.getElementById("catalogSearch").addEventListener("input", renderCatalogList);
+
+document.querySelectorAll(".filter-pills .pill-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-pills .pill-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.filter;
+    renderCatalogList();
+  });
+});
+
+["minConfidence", "minSupport", "minLift", "recLimit"].forEach(id => {
+  document.getElementById(id).addEventListener("input", refreshBasketRecommendations);
+});
+
+document.getElementById("similarBtn").addEventListener("click", findSimilar);
+document.getElementById("whatifBtn").addEventListener("click", compareScenarios);
+document.getElementById("openBasketTabBtn").addEventListener("click", () => switchTab("basket"));
+document.getElementById("clearBasketBtn").addEventListener("click", () => {
+  basket = [];
+  syncBasketUI();
+});
+
+document.getElementById("quickAddBtn").addEventListener("click", () => {
+  const input = document.getElementById("quickAddInput");
+  const q = input.value.trim().toLowerCase();
+  if (!q) return;
+  const match = catalog.find(c => String(c.code).toLowerCase() === q || c.name.toLowerCase().includes(q));
+  if (match) {
+    addToBasket(match.code, match.name);
+    input.value = "";
+  } else {
+    showToast("No matching product found");
+  }
+});
+
+document.body.addEventListener("click", e => {
+  const addBtn = e.target.closest("[data-add]");
+  if (addBtn) {
+    e.stopPropagation();
+    addToBasket(addBtn.dataset.add, addBtn.dataset.name);
+    return;
+  }
+  const remBtn = e.target.closest("[data-remove]");
+  if (remBtn) {
+    basket = basket.filter(item => item.code !== remBtn.dataset.remove);
+    syncBasketUI();
+    return;
+  }
+  const inspectEl = e.target.closest("[data-inspect]");
+  if (inspectEl) {
+    switchTab("product");
+    inspectProduct(inspectEl.dataset.inspect);
+    return;
+  }
+  const presetEl = e.target.closest("[data-preset]");
+  if (presetEl) {
+    const p = presets[Number(presetEl.dataset.preset)];
+    if (p) {
+      setBasketCodes(p.items.map(i => i.code));
+      showToast(`Loaded "${p.title}" preset`);
+    }
+    return;
+  }
+  const bundleBtn = e.target.closest("[data-bundle]");
+  if (bundleBtn) {
+    const codes = JSON.parse(bundleBtn.dataset.bundle);
+    setBasketCodes(codes);
+    switchTab("basket");
+    showToast("Loaded multi-item trigger into basket");
+    return;
+  }
+  const sampleBtn = e.target.closest("[data-sample]");
+  if (sampleBtn) {
+    document.getElementById("newKeywords").value = sampleBtn.dataset.sample.trim();
+    findSimilar();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
